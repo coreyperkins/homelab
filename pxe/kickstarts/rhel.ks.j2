@@ -1,0 +1,18 @@
+#version=RHEL9
+
+text
+url --url="{{ rhel_install_tree_url }}"
+network --bootproto=dhcp --device=link --activate --hostname={{ inventory_hostname }}
+lang en_US.UTF-8
+keyboard us
+timezone Etc/UTC --utc
+rootpw --lock
+
+# Storage is intentionally left to the installer UI until the target disks and
+# desired layout are known. Add explicit reviewed storage commands here later.
+
+reboot
+
+%packages
+@^minimal-environment
+%end

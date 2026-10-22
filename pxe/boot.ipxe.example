@@ -1,0 +1,28 @@
+#!ipxe
+
+# Example values only. Replace the address and RHEL path after choosing the
+# provisioning host, RHEL release, and architecture.
+set pxe_server 192.0.2.10
+set rhel_tree http://${pxe_server}/rhel/9/x86_64
+
+menu Homelab network boot
+item --key l local Boot from local disk
+item --key r rhel Install RHEL (interactive disk setup)
+item --key s shell iPXE shell
+choose --default local --timeout 5000 target && goto ${target} || goto local
+
+:local
+exit
+
+:shell
+shell
+goto start
+
+:rhel
+echo Starting the RHEL installer. Disk selection and partitioning are not automated.
+kernel ${rhel_tree}/images/pxeboot/vmlinuz ip=dhcp inst.repo=${rhel_tree} inst.ks=http://${pxe_server}/kickstarts/rhel/${mac:hexhyp}.ks
+initrd ${rhel_tree}/images/pxeboot/initrd.img
+boot
+
+:start
+goto start
