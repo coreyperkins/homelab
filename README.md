@@ -40,6 +40,13 @@ PXE requires a boot and installation service on the network. Decide where that s
 - Select the RHEL release, installation source, boot mode, and provisioning implementation before building the PXE workflow.
 - Keep credentials, subscription details, and other secrets out of this repository.
 
+### Host security
+
+- Keep SELinux enabled in enforcing mode on RHEL nodes.
+- Ensure the RKE2 SELinux policy is installed and RKE2 runs with SELinux support enabled on both server and agent nodes. The RKE2 RPM installation method handles these automatically; other installation methods require separate setup.
+- Do not plan to install AppArmor on the RHEL nodes. RKE2 requires AppArmor tools only when the host kernel supports AppArmor.
+- References: [RKE2 SELinux support](https://docs.rke2.io/security/selinux) and [RKE2 installation prerequisites](https://docs.rke2.io/install/quickstart#prerequisites).
+
 ### Configuration management
 
 - Ansible is the automation tool for repeatable host configuration and RKE2 installation.

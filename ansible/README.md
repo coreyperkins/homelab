@@ -22,5 +22,6 @@ Do not put passwords, tokens, private keys, or vault password files in version c
 1. Add host names, management addresses, and server/agent roles to `inventory/hosts.yml`.
 2. Decide the Ansible controller, SSH user, and privilege escalation approach.
 3. Confirm the RHEL version and required host configuration.
-4. Choose RKE2 version and topology, then add their variables and role tasks.
-5. Define and check pod/service network ranges before installing the cluster.
+4. Keep SELinux enforcing and verify RKE2 SELinux support is configured on every node. AppArmor is not planned for the RHEL hosts.
+5. Choose RKE2 version and topology, then add their variables and role tasks.
+6. Define and check pod/service network ranges before installing the cluster.
