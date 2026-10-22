@@ -1,0 +1,181 @@
+---
+- name: Install Rancher on the local RKE2 cluster
+  hosts: localhost
+  connection: local
+  become: false
+  gather_facts: false
+  vars_files:
+    - ../group_vars/all.yml
+  vars:
+    ansible_become: false
+    local_lab_repo_root: "{{ playbook_dir }}/../../.."
+    local_lab_secrets_dir: "{{ local_lab_repo_root }}/.secrets"
+    rancher_bootstrap_password_file: "{{ local_lab_secrets_dir }}/rancher-bootstrap-password"
+    helm_archive: "{{ local_lab_secrets_dir }}/helm-{{ helm_version }}-linux-amd64.tar.gz"
+    helm_binary: "{{ local_lab_secrets_dir }}/bin/helm"
+    helm_env:
+      KUBECONFIG: "{{ local_lab_secrets_dir }}/rke2.yaml"
+      HELM_CONFIG_HOME: "{{ local_lab_secrets_dir }}/helm/config"
+      HELM_CACHE_HOME: "{{ local_lab_secrets_dir }}/helm/cache"
+      HELM_DATA_HOME: "{{ local_lab_secrets_dir }}/helm/data"
+  tasks:
+    - name: Create private local directories for Helm and credentials
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0700"
+      loop:
+        - "{{ local_lab_secrets_dir }}"
+        - "{{ local_lab_secrets_dir }}/bin"
+        - "{{ helm_env.HELM_CONFIG_HOME }}"
+        - "{{ helm_env.HELM_CACHE_HOME }}"
+        - "{{ helm_env.HELM_DATA_HOME }}"
+
+    - name: Download the pinned Helm client
+      ansible.builtin.get_url:
+        url: "https://get.helm.sh/helm-{{ helm_version }}-linux-amd64.tar.gz"
+        dest: "{{ helm_archive }}"
+        mode: "0600"
+
+    - name: Unpack Helm
+      ansible.builtin.unarchive:
+        src: "{{ helm_archive }}"
+        dest: "{{ local_lab_secrets_dir }}"
+        remote_src: true
+        creates: "{{ local_lab_secrets_dir }}/linux-amd64/helm"
+
+    - name: Install Helm in the ignored secrets directory
+      ansible.builtin.copy:
+        src: "{{ local_lab_secrets_dir }}/linux-amd64/helm"
+        dest: "{{ helm_binary }}"
+        mode: "0700"
+        remote_src: true
+
+    - name: Ensure Rancher's stable chart repository is configured
+      ansible.builtin.command:
+        argv:
+          - "{{ helm_binary }}"
+          - repo
+          - add
+          - rancher-stable
+          - https://releases.rancher.com/server-charts/stable
+          - --force-update
+      environment: "{{ helm_env }}"
+      changed_when: false
+
+    - name: Ensure cert-manager chart repository is configured
+      ansible.builtin.command:
+        argv:
+          - "{{ helm_binary }}"
+          - repo
+          - add
+          - jetstack
+          - https://charts.jetstack.io
+          - --force-update
+      environment: "{{ helm_env }}"
+      changed_when: false
+
+    - name: Refresh Helm chart repositories
+      ansible.builtin.command:
+        argv:
+          - "{{ helm_binary }}"
+          - repo
+          - update
+      environment: "{{ helm_env }}"
+      changed_when: false
+
+    - name: Install or upgrade cert-manager
+      ansible.builtin.command:
+        argv:
+          - "{{ helm_binary }}"
+          - upgrade
+          - --install
+          - cert-manager
+          - jetstack/cert-manager
+          - --namespace
+          - cert-manager
+          - --create-namespace
+          - --version
+          - "{{ cert_manager_version }}"
+          - --set
+          - crds.enabled=true
+          - --wait
+          - --timeout
+          - 10m
+      environment: "{{ helm_env }}"
+      register: cert_manager_install
+      changed_when: "'has been upgraded' in cert_manager_install.stdout or 'has been installed' in cert_manager_install.stdout"
+
+    - name: Create a persistent bootstrap password if this is the first run
+      ansible.builtin.set_fact:
+        rancher_bootstrap_password: "{{ lookup('ansible.builtin.password', rancher_bootstrap_password_file, length=32, chars=['ascii_letters', 'digits']) }}"
+      no_log: true
+
+    - name: Store the bootstrap password without a trailing newline
+      ansible.builtin.copy:
+        content: "{{ rancher_bootstrap_password | trim }}"
+        dest: "{{ rancher_bootstrap_password_file }}"
+        mode: "0600"
+      no_log: true
+
+    - name: Install or upgrade Rancher
+      ansible.builtin.command:
+        argv:
+          - "{{ helm_binary }}"
+          - upgrade
+          - --install
+          - rancher
+          - rancher-stable/rancher
+          - --namespace
+          - cattle-system
+          - --create-namespace
+          - --version
+          - "{{ rancher_version }}"
+          - --set
+          - "hostname={{ rancher_hostname }}"
+          - --set
+          - "replicas={{ rancher_replicas }}"
+          - --set-file
+          - "bootstrapPassword={{ rancher_bootstrap_password_file }}"
+          - --wait
+          - --timeout
+          - 20m
+      environment: "{{ helm_env }}"
+      register: rancher_install
+      changed_when: "'has been upgraded' in rancher_install.stdout or 'has been installed' in rancher_install.stdout"
+      no_log: true
+
+    - name: Wait for Rancher to become available
+      ansible.builtin.command:
+        argv:
+          - "{{ local_lab_secrets_dir }}/kubectl"
+          - --kubeconfig
+          - "{{ local_lab_secrets_dir }}/rke2.yaml"
+          - -n
+          - cattle-system
+          - rollout
+          - status
+          - deployment/rancher
+          - --timeout=10m
+      changed_when: false
+
+    - name: Wait for Rancher's admission webhook to become available
+      ansible.builtin.command:
+        argv:
+          - "{{ local_lab_secrets_dir }}/kubectl"
+          - --kubeconfig
+          - "{{ local_lab_secrets_dir }}/rke2.yaml"
+          - -n
+          - cattle-system
+          - rollout
+          - status
+          - deployment/rancher-webhook
+          - --timeout=10m
+      changed_when: false
+
+    - name: Show Rancher URL and local bootstrap password file
+      ansible.builtin.debug:
+        msg:
+          - "Rancher URL: https://{{ rancher_hostname }}"
+          - "Admin username: admin"
+          - "Initial password saved in {{ rancher_bootstrap_password_file }} (read it locally; it is not printed here)."

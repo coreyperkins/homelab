@@ -1,0 +1,13 @@
+name: local-lab-mattermost-operator
+labels:
+  local-lab.homelab/component: mattermost-operator
+defaultNamespace: mattermost-operator
+helm:
+  repo: https://helm.mattermost.com
+  chart: mattermost-operator
+  version: 1.0.5
+  releaseName: mattermost-operator
+  values:
+    mattermostOperator:
+      enabled: true
+      replicas: 1

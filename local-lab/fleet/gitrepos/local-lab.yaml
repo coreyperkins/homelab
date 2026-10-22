@@ -1,0 +1,13 @@
+apiVersion: fleet.cattle.io/v1alpha1
+kind: GitRepo
+metadata:
+  name: local-lab
+  namespace: fleet-local
+spec:
+  repo: https://github.com/coreyperkins/homelab.git
+  branch: main
+  paths:
+    - local-lab/fleet/bundles/storage
+    - local-lab/fleet/bundles/cnpg-operator
+    - local-lab/fleet/bundles/mattermost-operator
+    - local-lab/fleet/bundles/mattermost

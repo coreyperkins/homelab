@@ -1,0 +1,13 @@
+name: local-lab-storage
+labels:
+  local-lab.homelab/component: storage
+defaultNamespace: local-path-storage
+helm:
+  repo: oci://ghcr.io/rancher/local-path-provisioner/charts/local-path-provisioner
+  version: 0.0.37
+  releaseName: local-path-storage
+  values:
+    storageClass:
+      create: true
+      defaultClass: false
+      name: local-path

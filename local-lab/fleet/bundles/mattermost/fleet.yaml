@@ -1,0 +1,14 @@
+name: local-lab-mattermost
+labels:
+  local-lab.homelab/component: mattermost
+defaultNamespace: mattermost
+dependsOn:
+  - selector:
+      matchLabels:
+        local-lab.homelab/component: storage
+  - selector:
+      matchLabels:
+        local-lab.homelab/component: cnpg-operator
+  - selector:
+      matchLabels:
+        local-lab.homelab/component: mattermost-operator

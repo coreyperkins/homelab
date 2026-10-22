@@ -1,0 +1,38 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mattermost-filestore
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: installation.mattermost.com/v1beta1
+kind: Mattermost
+metadata:
+  name: mattermost
+spec:
+  image: mattermost/mattermost-team-edition
+  version: "12.0.0"
+  replicas: 1
+  database:
+    external:
+      secret: mattermost-db-credentials
+  fileStore:
+    externalVolume:
+      volumeClaimName: mattermost-filestore
+  ingress:
+    enabled: true
+    host: mattermost.local-lab.test
+    ingressClass: traefik
+  scheduling:
+    resources:
+      requests:
+        cpu: 250m
+        memory: 768Mi
+      limits:
+        cpu: "1"
+        memory: 1536Mi

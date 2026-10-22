@@ -1,0 +1,9 @@
+name: local-lab-cnpg-operator
+labels:
+  local-lab.homelab/component: cnpg-operator
+defaultNamespace: cnpg-system
+helm:
+  repo: https://cloudnative-pg.github.io/charts
+  chart: cloudnative-pg
+  version: 0.29.0
+  releaseName: cloudnative-pg
