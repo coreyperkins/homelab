@@ -37,6 +37,8 @@ The first RKE2 learning cluster uses two existing libvirt VMs on the host's defa
 - Firewalld is disabled in this isolated NAT-based exercise because the default Canal network plugin conflicts with firewalld. Revisit firewall rules before moving nodes onto a shared or physical network.
 - The lab-only SSH key, VM install answers, kubeconfig, kubectl copy, and other local credentials live under ignored `.secrets/`. The ISO under `images/` is also ignored. Recreate local credentials from the instructions in `local-lab/README.md` after a laptop replacement.
 
+To create the local VMs and install RHEL, run [`local-lab/scripts/provision-vms.sh`](local-lab/scripts/provision-vms.sh). Then run the two Ansible playbooks described in [`local-lab/README.md`](local-lab/README.md). Use `local-lab/scripts/teardown-vms.sh` to preview removing them. These local workflows do not change the future physical homelab setup.
+
 Inspect the cluster from this repository with:
 
 ```sh

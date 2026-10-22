@@ -1,6 +1,8 @@
 # Local VM RKE2 exercise
 
-This is the reproducible configuration for the two disposable libvirt VMs. It is intentionally separate from the physical homelab configuration under [`../ansible/`](../ansible/README.md).
+This is the reproducible setup for the two disposable libvirt VMs. It is intentionally separate from the physical homelab configuration under [`../ansible/`](../ansible/README.md).
+
+The provisioning script creates the VMs and installs RHEL 10.2 unattended with Kickstart. Ansible then configures RHEL and installs RKE2.
 
 ## What this automates
 
@@ -9,32 +11,44 @@ This is the reproducible configuration for the two disposable libvirt VMs. It is
 - Installs the pinned RKE2 server and agent RPMs, configures the server and joins the worker, and keeps the join token out of Ansible output.
 - Retrieves the cluster kubeconfig and bundled `kubectl` into the ignored `.secrets/` directory.
 
-The playbooks configure already installed RHEL VMs. They do not create libvirt VMs or install RHEL. Recreating the environment also requires the RHEL 10.2 DVD ISO, libvirt with its default `192.168.122.0/24` network, two VMs with the documented CPU/memory/disk settings, DHCP reservations for `.201` and `.202`, and RHEL installed with the `corey` account and Ansible SSH key authorized. Attach the DVD to each VM and confirm it is labeled `RHEL-10-2-BaseOS-x86_64`.
+The script expects a Linux host with libvirt's `default` NAT network (`192.168.122.0/24`) and the RHEL 10.2 x86_64 DVD ISO at `images/rhel-10.2-x86_64-dvd.iso`. It checks the ISO checksum and volume label, creates DHCP reservations for `.201` and `.202`, and creates two 2-vCPU, 4-GiB, 30-GiB VMs. It creates a lab SSH key and console password in ignored `.secrets/`, injects the public key into the RHEL install, and records the new SSH host keys there. RHEL remains unregistered, so it will not receive Red Hat CDN updates.
 
-If the VMs survive but the laptop is replaced, generate a new SSH key and add its public key to the `corey` account on both nodes through the VM console before running Ansible. If both laptop and VMs are lost, rebuild the VMs and RHEL baseline first; the ISO can be downloaded again from Red Hat, but is not stored in Git.
+The provisioner never deletes or overwrites an existing VM or disk. Existing VMs are started and left intact. If a VM definition is missing while its disk remains, the script stops for manual review. If both laptop and VMs are lost, download the ISO again from Red Hat; it is not stored in Git.
 
 ## Prepare the Ansible controller
 
-On Debian or Ubuntu, install Ansible and the SSH client:
+On Debian or Ubuntu, install libvirt, the VM tools, Ansible, and the SSH client:
 
 ```sh
 sudo apt update
-sudo apt install ansible-core openssh-client
+sudo apt install libvirt-daemon-system libvirt-clients virtinst qemu-utils ansible-core openssh-client openssl util-linux
 ```
 
-From the repository root, create local credentials and accept the VM host keys:
+Download the RHEL 10.2 x86_64 DVD ISO from Red Hat, put it at `images/rhel-10.2-x86_64-dvd.iso`, then provision the VMs from the repository root:
 
 ```sh
-mkdir -p .secrets
-ssh-keygen -t ed25519 -f .secrets/rke2-lab-ed25519 -C homelab-local-rke2
-ssh-keyscan -H 192.168.122.201 192.168.122.202 > .secrets/known_hosts
+local-lab/scripts/provision-vms.sh
 ```
 
-Install the public key in `~corey/.ssh/authorized_keys` on both VMs. Keep the private key in `.secrets/`; that directory is ignored by Git. For an existing setup, use the key already authorized on the VMs if it is available.
+The script asks for sudo when it needs access to system libvirt, installs the ISO under `/var/lib/libvirt/images`, and waits for both RHEL installs to accept SSH. It generates a lab-only SSH key and console password if they do not already exist; the password is in `.secrets/rhel-lab-console-password`. Keep `.secrets/` private; it is ignored by Git.
+
+When you want to remove the VMs, preview the teardown first:
+
+```sh
+local-lab/scripts/teardown-vms.sh
+```
+
+To proceed, add `--apply` and type the requested confirmation phrase:
+
+```sh
+local-lab/scripts/teardown-vms.sh --apply
+```
+
+It shuts down and undefines only `cks-control` and `cks-worker`, then removes only same-named qcow2 disks referenced by those VM definitions. It never force-powers-off a VM. DHCP reservations, ISO files, and `.secrets/` are preserved. If the guests do not shut down cleanly or have snapshots, it stops for manual review.
 
 ## Run the playbooks
 
-Run these from the repository root. The local-lab inventory, SSH settings, and variable values are loaded from `local-lab/ansible/`:
+After the script finishes, run these from the repository root. The local-lab inventory, SSH settings, and variable values are loaded from `local-lab/ansible/`:
 
 ```sh
 ANSIBLE_CONFIG=local-lab/ansible/ansible.cfg ansible-playbook local-lab/ansible/playbooks/configure-hosts.yml
