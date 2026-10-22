@@ -21,6 +21,9 @@ spec:
   database:
     external:
       secret: mattermost-db-credentials
+  mattermostEnv:
+    - name: MM_SERVICESETTINGS_SITEURL
+      value: http://mattermost.local-lab.test
   fileStore:
     externalVolume:
       volumeClaimName: mattermost-filestore
