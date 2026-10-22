@@ -24,6 +24,43 @@
           - rhel_selinux_mode.stdout == "Enforcing"
         fail_msg: SELinux must be enabled in enforcing mode before RKE2 setup.
 
+    - name: Install SELinux file-context management tools
+      ansible.builtin.dnf:
+        name: policycoreutils-python-utils
+        state: present
+
+    - name: Create the local-path storage root
+      ansible.builtin.file:
+        path: "{{ local_path_storage_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Read local SELinux file-context overrides
+      ansible.builtin.command: semanage fcontext -l -C
+      register: local_path_fcontext_overrides
+      changed_when: false
+
+    - name: Label local-path storage for container volume access
+      ansible.builtin.command:
+        argv:
+          - semanage
+          - fcontext
+          - -a
+          - -t
+          - container_file_t
+          - "{{ local_path_storage_dir }}(/.*)?"
+      when: "(local_path_storage_dir ~ '(/.*)?') not in local_path_fcontext_overrides.stdout"
+
+    - name: Apply the local-path storage SELinux label
+      ansible.builtin.command:
+        argv:
+          - restorecon
+          - -RF
+          - "{{ local_path_storage_dir }}"
+      changed_when: false
+
     - name: Create the RHEL DVD mount point
       ansible.builtin.file:
         path: "{{ rhel_dvd_mount }}"

@@ -12,6 +12,7 @@ rke2_config_dir: /etc/rancher/rke2
 rke2_cluster_cidr: 10.42.0.0/16
 rke2_service_cidr: 10.43.0.0/16
 rke2_disable_firewalld: true
+local_path_storage_dir: /opt/local-path-provisioner
 
 # Rancher UI for the disposable local VM cluster. Map this private hostname to
 # the control node in the laptop's hosts file; RKE2 Traefik binds ports 80/443.
