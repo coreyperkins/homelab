@@ -1,12 +1,10 @@
 ---
-- name: Install and configure RKE2 servers
+- name: Install RKE2 on physical homelab server nodes
   hosts: rke2_servers
   become: true
   tasks: []
-  # Add the selected RKE2 server configuration after topology and version are set.
 
-- name: Install and configure RKE2 agents
+- name: Install RKE2 on physical homelab agent nodes
   hosts: rke2_agents
   become: true
   tasks: []
-  # Add agent join configuration after the server endpoint and token handling are defined.

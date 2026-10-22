@@ -1,0 +1,14 @@
+---
+# Values for the disposable two-node libvirt practice cluster.
+# Change these when moving to the physical homelab.
+rhel_major_version: "10"
+rhel_dvd_volume_label: RHEL-10-2-BaseOS-x86_64
+rhel_dvd_mount: /mnt/rhel-dvd
+
+rke2_version: v1.36.5+rke2r1
+rke2_channel: stable
+rke2_install_script_url: https://get.rke2.io
+rke2_config_dir: /etc/rancher/rke2
+rke2_cluster_cidr: 10.42.0.0/16
+rke2_service_cidr: 10.43.0.0/16
+rke2_disable_firewalld: true

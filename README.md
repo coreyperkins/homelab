@@ -20,11 +20,28 @@ Early requirements and deployment outline for a small, self-managed Kubernetes h
 
 PXE boot and Kickstart starting files are in [`pxe/`](pxe/README.md). They are templates for development, not ready-to-enable network services; the DHCP owner, RHEL release, and lab network still need to be chosen.
 
-Ansible starter files for host configuration and RKE2 deployment are in [`ansible/`](ansible/README.md). Inventory and playbooks are scaffolding until the servers and their roles are known.
+The early VM exercise below is a disposable two-node learning setup, separate from the planned physical homelab. Its runnable Ansible instructions are in [`local-lab/README.md`](local-lab/README.md). The top-level [`ansible/`](ansible/README.md) directory is reserved for the future physical machines.
 
 PXE requires a boot and installation service on the network. Decide where that service will run and how it will coexist with the existing DHCP service before enabling it; avoid introducing a second, conflicting DHCP server on a shared LAN.
 
 ## Early requirements
+
+### Early VM exercise
+
+The first RKE2 learning cluster uses two existing libvirt VMs on the host's default NAT network (`192.168.122.0/24`). It is a single-server cluster for practice, not a highly available design or the final three-node physical homelab.
+
+- `cks-control` — RHEL 10.2, 2 vCPU, 4 GiB RAM, 30 GiB disk, `192.168.122.201`.
+- `cks-worker` — RHEL 10.2, 2 vCPU, 4 GiB RAM, 30 GiB disk, `192.168.122.202`.
+- Both nodes use RKE2 `v1.36.5+rke2r1`, SELinux enforcing, and the RKE2 SELinux policy.
+- The RHEL DVD ISO is attached to each VM and provides local BaseOS/AppStream package repositories. The installations are not registered to Red Hat, so they do not receive Red Hat CDN updates.
+- Firewalld is disabled in this isolated NAT-based exercise because the default Canal network plugin conflicts with firewalld. Revisit firewall rules before moving nodes onto a shared or physical network.
+- The lab-only SSH key, VM install answers, kubeconfig, kubectl copy, and other local credentials live under ignored `.secrets/`. The ISO under `images/` is also ignored. Recreate local credentials from the instructions in `local-lab/README.md` after a laptop replacement.
+
+Inspect the cluster from this repository with:
+
+```sh
+.secrets/kubectl --kubeconfig .secrets/rke2.yaml get nodes -o wide
+```
 
 ### Hardware and networking
 
@@ -49,7 +66,7 @@ PXE requires a boot and installation service on the network. Decide where that s
 
 ### Configuration management
 
-- Ansible is the automation tool for repeatable host configuration and RKE2 installation.
+- Ansible is the intended automation tool for repeatable host configuration and RKE2 installation. The local VM setup has a separate playbook set; the physical homelab inventory and playbooks will be developed under `ansible/` when its hardware and network are known.
 - Maintain an inventory of host names, addresses, and intended roles.
 - Store reusable configuration in playbooks and roles; keep site-specific values in inventory or variables.
 - Define how Ansible reaches newly provisioned hosts and where its controller runs.

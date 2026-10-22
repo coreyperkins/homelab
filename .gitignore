@@ -1,3 +1,5 @@
 .nvimlog
+images/*.iso
+.secrets/
 ansible/.vault-pass
 ansible/vault-password.txt

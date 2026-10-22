@@ -1,4 +1,3 @@
 ---
-# Shared, non-secret homelab configuration goes here after the network,
-# RHEL release, RKE2 version, and pod/service ranges have been selected.
-# Keep credentials in Ansible Vault, not in this file.
+# Physical homelab variables will be defined after its network and hardware
+# have been selected. Keep secrets out of this file.

@@ -1,0 +1,8 @@
+node-name: {{ inventory_hostname }}
+node-ip: {{ rke2_node_ip }}
+advertise-address: {{ rke2_node_ip }}
+tls-san:
+  - {{ rke2_node_ip }}
+cluster-cidr: {{ rke2_cluster_cidr }}
+service-cidr: {{ rke2_service_cidr }}
+selinux: true

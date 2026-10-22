@@ -1,0 +1,171 @@
+---
+- name: Install and start the RKE2 server
+  hosts: rke2_servers
+  become: true
+  gather_facts: true
+  tasks:
+    - name: Download the official RKE2 installer
+      ansible.builtin.get_url:
+        url: "{{ rke2_install_script_url }}"
+        dest: /usr/local/sbin/rke2-install.sh
+        owner: root
+        group: root
+        mode: "0755"
+        force: false
+
+    - name: Install the pinned RKE2 server RPMs and SELinux policy
+      ansible.builtin.shell: /bin/sh /usr/local/sbin/rke2-install.sh
+      environment:
+        INSTALL_RKE2_TYPE: server
+        INSTALL_RKE2_CHANNEL: "{{ rke2_channel }}"
+        INSTALL_RKE2_VERSION: "{{ rke2_version }}"
+      args:
+        creates: /usr/local/bin/rke2
+
+    - name: Create the RKE2 server configuration directory
+      ansible.builtin.file:
+        path: "{{ rke2_config_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Configure the RKE2 server
+      ansible.builtin.template:
+        src: ../templates/rke2-server.yaml.j2
+        dest: "{{ rke2_config_dir }}/config.yaml"
+        owner: root
+        group: root
+        mode: "0600"
+
+    - name: Enable and start RKE2 server
+      ansible.builtin.service:
+        name: rke2-server
+        state: started
+        enabled: true
+
+    - name: Wait for the RKE2 registration endpoint
+      ansible.builtin.wait_for:
+        host: "{{ rke2_node_ip }}"
+        port: 9345
+        delay: 5
+        timeout: 300
+
+    - name: Wait for the Kubernetes API
+      ansible.builtin.wait_for:
+        host: "{{ rke2_node_ip }}"
+        port: 6443
+        timeout: 300
+
+    - name: Create the local secrets directory
+      ansible.builtin.file:
+        path: "{{ inventory_dir }}/../../../.secrets"
+        state: directory
+        mode: "0700"
+      delegate_to: localhost
+      become: false
+      run_once: true
+
+    - name: Fetch the RKE2 kubeconfig to the ignored local secrets directory
+      ansible.builtin.fetch:
+        src: /etc/rancher/rke2/rke2.yaml
+        dest: "{{ inventory_dir }}/../../../.secrets/rke2.yaml"
+        flat: true
+      no_log: true
+
+    - name: Point the local kubeconfig at the control node
+      ansible.builtin.replace:
+        path: "{{ inventory_dir }}/../../../.secrets/rke2.yaml"
+        regexp: https://127\.0\.0\.1:6443
+        replace: "https://{{ rke2_node_ip }}:6443"
+      delegate_to: localhost
+      become: false
+      run_once: true
+      no_log: true
+
+    - name: Restrict local kubeconfig permissions
+      ansible.builtin.file:
+        path: "{{ inventory_dir }}/../../../.secrets/rke2.yaml"
+        mode: "0600"
+      delegate_to: localhost
+      become: false
+      run_once: true
+
+    - name: Fetch the bundled kubectl client
+      ansible.builtin.fetch:
+        src: /var/lib/rancher/rke2/bin/kubectl
+        dest: "{{ inventory_dir }}/../../../.secrets/kubectl"
+        flat: true
+
+    - name: Make the local kubectl client executable
+      ansible.builtin.file:
+        path: "{{ inventory_dir }}/../../../.secrets/kubectl"
+        mode: "0755"
+      delegate_to: localhost
+      become: false
+      run_once: true
+
+    - name: Read the server join token for this play only
+      ansible.builtin.slurp:
+        src: /var/lib/rancher/rke2/server/node-token
+      register: rke2_server_token
+      no_log: true
+
+- name: Install and join RKE2 agents
+  hosts: rke2_agents
+  become: true
+  gather_facts: true
+  vars:
+    rke2_server_host: "{{ groups['rke2_servers'][0] }}"
+    rke2_server_ip: "{{ hostvars[rke2_server_host].rke2_node_ip }}"
+    rke2_join_token: "{{ hostvars[rke2_server_host].rke2_server_token.content | b64decode }}"
+  tasks:
+    - name: Wait for the RKE2 server registration endpoint
+      ansible.builtin.wait_for:
+        host: "{{ rke2_server_ip }}"
+        port: 9345
+        timeout: 300
+
+    - name: Download the official RKE2 installer
+      ansible.builtin.get_url:
+        url: "{{ rke2_install_script_url }}"
+        dest: /usr/local/sbin/rke2-install.sh
+        owner: root
+        group: root
+        mode: "0755"
+        force: false
+
+    - name: Install the pinned RKE2 agent RPMs and SELinux policy
+      ansible.builtin.shell: /bin/sh /usr/local/sbin/rke2-install.sh
+      environment:
+        INSTALL_RKE2_TYPE: agent
+        INSTALL_RKE2_CHANNEL: "{{ rke2_channel }}"
+        INSTALL_RKE2_VERSION: "{{ rke2_version }}"
+      args:
+        creates: /usr/local/bin/rke2
+
+    - name: Create the RKE2 agent configuration directory
+      ansible.builtin.file:
+        path: "{{ rke2_config_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Configure the RKE2 agent join credentials
+      ansible.builtin.template:
+        src: ../templates/rke2-agent.yaml.j2
+        dest: "{{ rke2_config_dir }}/config.yaml"
+        owner: root
+        group: root
+        mode: "0600"
+      vars:
+        rke2_agent_server: "https://{{ rke2_server_ip }}:9345"
+        rke2_agent_token: "{{ rke2_join_token }}"
+      no_log: true
+
+    - name: Enable and start RKE2 agent
+      ansible.builtin.service:
+        name: rke2-agent
+        state: started
+        enabled: true
