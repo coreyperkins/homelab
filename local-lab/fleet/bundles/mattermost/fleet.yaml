@@ -2,6 +2,8 @@ name: local-lab-mattermost
 labels:
   local-lab.homelab/component: mattermost
 defaultNamespace: mattermost
+helm:
+  takeOwnership: true
 dependsOn:
   - selector:
       matchLabels:
