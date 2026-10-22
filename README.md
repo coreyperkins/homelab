@@ -20,6 +20,8 @@ Early requirements and deployment outline for a small, self-managed Kubernetes h
 
 PXE boot and Kickstart starting files are in [`pxe/`](pxe/README.md). They are templates for development, not ready-to-enable network services; the DHCP owner, RHEL release, and lab network still need to be chosen.
 
+Ansible starter files for host configuration and RKE2 deployment are in [`ansible/`](ansible/README.md). Inventory and playbooks are scaffolding until the servers and their roles are known.
+
 PXE requires a boot and installation service on the network. Decide where that service will run and how it will coexist with the existing DHCP service before enabling it; avoid introducing a second, conflicting DHCP server on a shared LAN.
 
 ## Early requirements

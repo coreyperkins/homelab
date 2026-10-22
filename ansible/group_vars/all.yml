@@ -1,0 +1,4 @@
+---
+# Shared, non-secret homelab configuration goes here after the network,
+# RHEL release, RKE2 version, and pod/service ranges have been selected.
+# Keep credentials in Ansible Vault, not in this file.

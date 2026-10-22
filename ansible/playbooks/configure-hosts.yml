@@ -1,0 +1,7 @@
+---
+- name: Configure RHEL hosts
+  hosts: all
+  become: true
+  tasks: []
+  # Add reviewed, repeatable host configuration tasks here once the hardware
+  # and RHEL release are known.
