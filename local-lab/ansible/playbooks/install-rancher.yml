@@ -159,6 +159,22 @@
           - --timeout=10m
       changed_when: false
 
+    - name: Wait for Rancher to create its admission webhook deployment
+      ansible.builtin.command:
+        argv:
+          - "{{ local_lab_secrets_dir }}/kubectl"
+          - --kubeconfig
+          - "{{ local_lab_secrets_dir }}/rke2.yaml"
+          - -n
+          - cattle-system
+          - get
+          - deployment/rancher-webhook
+      register: rancher_webhook_deployment
+      retries: 60
+      delay: 10
+      until: rancher_webhook_deployment.rc == 0
+      changed_when: false
+
     - name: Wait for Rancher's admission webhook to become available
       ansible.builtin.command:
         argv:

@@ -3,6 +3,8 @@
   hosts: all
   become: true
   gather_facts: true
+  vars_files:
+    - ../group_vars/all.yml
   tasks:
     - name: Require the selected RHEL major version
       ansible.builtin.assert:
@@ -23,6 +25,41 @@
         that:
           - rhel_selinux_mode.stdout == "Enforcing"
         fail_msg: SELinux must be enabled in enforcing mode before RKE2 setup.
+
+    - name: Create the RHEL DVD mount point
+      ansible.builtin.file:
+        path: "{{ rhel_dvd_mount }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Mount the attached RHEL DVD and persist the mount
+      ansible.builtin.mount:
+        path: "{{ rhel_dvd_mount }}"
+        src: "LABEL={{ rhel_dvd_volume_label }}"
+        fstype: iso9660
+        opts: ro,nofail,x-systemd.device-timeout=3s
+        dump: "0"
+        passno: "0"
+        state: mounted
+
+    - name: Configure local RHEL DVD repositories
+      ansible.builtin.yum_repository:
+        name: "{{ item.name }}"
+        description: "{{ item.description }}"
+        file: rhel-dvd
+        baseurl: "file://{{ rhel_dvd_mount }}/{{ item.path }}"
+        enabled: true
+        gpgcheck: true
+        gpgkey: file:///etc/pki/rpm-gpg/RPM-GPG-KEY-redhat-release
+      loop:
+        - name: rhel-dvd-baseos
+          description: RHEL DVD BaseOS
+          path: BaseOS
+        - name: rhel-dvd-appstream
+          description: RHEL DVD AppStream
+          path: AppStream
 
     - name: Install SELinux file-context management tools
       ansible.builtin.dnf:
@@ -60,41 +97,6 @@
           - -RF
           - "{{ local_path_storage_dir }}"
       changed_when: false
-
-    - name: Create the RHEL DVD mount point
-      ansible.builtin.file:
-        path: "{{ rhel_dvd_mount }}"
-        state: directory
-        owner: root
-        group: root
-        mode: "0755"
-
-    - name: Mount the attached RHEL DVD and persist the mount
-      ansible.builtin.mount:
-        path: "{{ rhel_dvd_mount }}"
-        src: "LABEL={{ rhel_dvd_volume_label }}"
-        fstype: iso9660
-        opts: ro,nofail,x-systemd.device-timeout=3s
-        dump: "0"
-        passno: "0"
-        state: mounted
-
-    - name: Configure local RHEL DVD repositories
-      ansible.builtin.yum_repository:
-        name: "{{ item.name }}"
-        description: "{{ item.description }}"
-        file: rhel-dvd
-        baseurl: "file://{{ rhel_dvd_mount }}/{{ item.path }}"
-        enabled: true
-        gpgcheck: true
-        gpgkey: file:///etc/pki/rpm-gpg/RPM-GPG-KEY-redhat-release
-      loop:
-        - name: rhel-dvd-baseos
-          description: RHEL DVD BaseOS
-          path: BaseOS
-        - name: rhel-dvd-appstream
-          description: RHEL DVD AppStream
-          path: AppStream
 
     - name: Install RHEL 10 RKE2 kernel modules
       ansible.builtin.dnf:

@@ -1,5 +1,8 @@
 .nvimlog
 images/*.iso
+images/*.qcow2
 .secrets/
+/kubectl
+/kubectl.sha256
 ansible/.vault-pass
 ansible/vault-password.txt

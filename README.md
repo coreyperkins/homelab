@@ -20,24 +20,27 @@ Early requirements and deployment outline for a small, self-managed Kubernetes h
 
 PXE boot and Kickstart starting files are in [`pxe/`](pxe/README.md). They are templates for development, not ready-to-enable network services; the DHCP owner, RHEL release, and lab network still need to be chosen.
 
-The early VM exercise below is a disposable two-node learning setup, separate from the planned physical homelab. Its runnable Ansible instructions are in [`local-lab/README.md`](local-lab/README.md). The top-level [`ansible/`](ansible/README.md) directory is reserved for the future physical machines.
+The local VM lab is a disposable two-node learning setup, separate from the planned physical homelab. Its one-command rebuild and manual steps are in [`local-lab/README.md`](local-lab/README.md). The current environment state and resume notes are in [`HANDOFF.md`](HANDOFF.md). The top-level [`ansible/`](ansible/README.md) directory is reserved for the future physical machines.
 
 PXE requires a boot and installation service on the network. Decide where that service will run and how it will coexist with the existing DHCP service before enabling it; avoid introducing a second, conflicting DHCP server on a shared LAN.
 
 ## Early requirements
 
-### Early VM exercise
+### Local VM exercise
 
 The first RKE2 learning cluster uses two existing libvirt VMs on the host's default NAT network (`192.168.122.0/24`). It is a single-server cluster for practice, not a highly available design or the final three-node physical homelab.
 
 - `cks-control` — RHEL 10.2, 2 vCPU, 4 GiB RAM, 30 GiB disk, `192.168.122.201`.
 - `cks-worker` — RHEL 10.2, 2 vCPU, 4 GiB RAM, 30 GiB disk, `192.168.122.202`.
 - Both nodes use RKE2 `v1.36.5+rke2r1`, SELinux enforcing, and the RKE2 SELinux policy.
+- Rancher `2.15.2` manages the local RKE2 cluster. Mattermost Team Edition runs as a Fleet-managed workload with CloudNativePG and the local-path provisioner.
 - The RHEL DVD ISO is attached to each VM and provides local BaseOS/AppStream package repositories. The installations are not registered to Red Hat, so they do not receive Red Hat CDN updates.
 - Firewalld is disabled in this isolated NAT-based exercise because the default Canal network plugin conflicts with firewalld. Revisit firewall rules before moving nodes onto a shared or physical network.
 - The lab-only SSH key, VM install answers, kubeconfig, kubectl copy, and other local credentials live under ignored `.secrets/`. The ISO under `images/` is also ignored. Recreate local credentials from the instructions in `local-lab/README.md` after a laptop replacement.
 
-To create the local VMs and install RHEL, run [`local-lab/scripts/provision-vms.sh`](local-lab/scripts/provision-vms.sh). Then run the two Ansible playbooks described in [`local-lab/README.md`](local-lab/README.md). Use `local-lab/scripts/teardown-vms.sh` to preview removing them. These local workflows do not change the future physical homelab setup.
+To recreate the entire local stack, run `local-lab/scripts/rebuild-local-lab.sh --confirm-destroy`. It removes both VM disks and all cluster data on them, then provisions RHEL, configures the hosts, installs RKE2 and Rancher, and deploys Mattermost. It stops on the first failed stage and writes a log under `.secrets/`. The ISO and `.secrets/` are preserved. Use `local-lab/scripts/teardown-vms.sh` to preview removing only the VMs. These local workflows do not change the future physical homelab setup.
+
+The Mattermost application has no preset admin login or password. The first user account created in the application becomes the system administrator. The database credential in `.secrets/mattermost-db-password` is only for PostgreSQL.
 
 Inspect the cluster from this repository with:
 

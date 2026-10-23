@@ -58,5 +58,61 @@ fi
 "${kubectl}" --kubeconfig "${kubeconfig}" apply -f \
   "${repo_root}/local-lab/fleet/gitrepos/local-lab.yaml"
 
-echo "Fleet GitRepo applied. Fleet will sync the Mattermost bundles from origin/main."
+echo "Fleet GitRepo applied. Waiting for its bundles and Mattermost workloads to become Ready."
+
+deadline=$((SECONDS + 1800))
+error_since=0
+last_error_state=""
+next_status_report=$((SECONDS + 60))
+printf 'Waiting up to 30 minutes for all four Fleet bundles and Mattermost pods'
+while (( SECONDS < deadline )); do
+  bundle_states="$("${kubectl}" --kubeconfig "${kubeconfig}" -n fleet-local \
+    get bundles --no-headers 2>/dev/null || true)"
+
+  error_state="$(grep -E 'Err[A-Za-z]+' <<<"${bundle_states}" || true)"
+  if [[ -n "${error_state}" ]]; then
+    if [[ "${error_state}" != "${last_error_state}" ]]; then
+      error_since="${SECONDS}"
+      last_error_state="${error_state}"
+      printf '\nFleet is still reconciling dependencies; allowing up to three minutes for this error to clear.\n' >&2
+    elif (( SECONDS - error_since >= 180 )); then
+      printf '\nFleet bundle error persisted for three minutes:\n%s\n' "${bundle_states}" >&2
+      "${kubectl}" --kubeconfig "${kubeconfig}" -n fleet-local get gitrepo,bundles >&2 || true
+      exit 1
+    fi
+  else
+    error_since=0
+    last_error_state=""
+  fi
+
+  bundle_count="$(awk 'NF { count++ } END { print count + 0 }' <<<"${bundle_states}")"
+  ready_bundle_count="$(awk '$2 ~ /^[0-9]+\/[0-9]+$/ { split($2, counts, "/"); if (counts[1] > 0 && counts[1] == counts[2]) count++ } END { print count + 0 }' <<<"${bundle_states}")"
+  if (( bundle_count >= 4 && ready_bundle_count == bundle_count )); then
+    mattermost_pods="$("${kubectl}" --kubeconfig "${kubeconfig}" -n mattermost \
+      get pods --no-headers 2>/dev/null || true)"
+    if [[ -n "${mattermost_pods}" ]] && \
+      "${kubectl}" --kubeconfig "${kubeconfig}" -n mattermost \
+        wait --for=condition=Ready pods --all --timeout=30s >/dev/null 2>&1; then
+      printf '\nAll Fleet bundles and Mattermost namespace pods are Ready.\n'
+      break
+    fi
+  fi
+
+  printf '.'
+  if (( SECONDS >= next_status_report )); then
+    printf '\nFleet bundle readiness: %s/%s\n' "${ready_bundle_count}" "${bundle_count}"
+    "${kubectl}" --kubeconfig "${kubeconfig}" -n mattermost get pods,pvc >&2 || true
+    next_status_report=$((SECONDS + 60))
+  fi
+  sleep 10
+done
+
+if (( SECONDS >= deadline )); then
+  printf '\nMattermost did not become Ready before the timeout. Current status:\n' >&2
+  "${kubectl}" --kubeconfig "${kubeconfig}" -n fleet-local get gitrepo,bundles >&2 || true
+  "${kubectl}" --kubeconfig "${kubeconfig}" -n mattermost get pods,pvc >&2 || true
+  exit 1
+fi
+
+echo "Mattermost is ready at http://mattermost.local-lab.test."
 echo "The generated database password is in ${db_password_file} (mode 0600)."
